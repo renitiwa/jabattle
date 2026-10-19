@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>全国市区町村バトルロワイヤル - MUNICIPALITY CLASH</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;900&family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .title-font {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+      50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.9); }
+    }
+    @keyframes vs-bounce {
+      0%, 100% { transform: scale(1) rotate(-5deg); }
+      50% { transform: scale(1.15) rotate(5deg); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+    .vs-badge {
+      animation: vs-bounce 2s infinite ease-in-out;
+    }
+    .shake-anim {
+      animation: shake 0.4s ease-in-out;
+    }
+    .card-glow {
+      animation: pulse-glow 3s infinite;
+    }
+    /* スクロールバー装飾 */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="flex flex-col items-center p-3 md:p-6 select-none">
+
+  <!-- ヘッダー -->
+  <header class="w-full max-w-5xl flex flex-wrap justify-between items-center mb-4 gap-2 border-b border-slate-700 pb-3">
+    <div class="flex items-center gap-3">
+      <span class="text-3xl">🗾</span>
+      <div>
+        <h1 class="title-font text-xl md:text-2xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400">
+          全国市区町村バトルロワイヤル
+        </h1>
+        <p class="text-xs text-slate-400">MUNICIPALITY CLASH — 統計データで全国制覇を目指せ！</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="bg-slate-800/80 border border-slate-600 rounded-lg px-3 py-1.5 text-xs md:text-sm flex items-center gap-2">
+        <span>🔥 最大連勝: <strong id="best-streak" class="text-amber-400 text-base">0</strong></span>
+        <span class="text-slate-600">|</span>
+        <span>📖 撃破図鑑: <strong id="dex-count" class="text-cyan-400 text-base">0/42</strong></span>
+      </div>
+      <button id="sound-btn" onclick="toggleSound()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm transition">
+        🔊 音ON
+      </button>
+    </div>
+  </header>
+
+  <!-- メインコンテナ -->
+  <main class="w-full max-w-5xl flex-1 flex flex-col">
+
+    <!-- 画面1: 市区町村選択画面 -->
+    <section id="screen-select" class="w-full flex flex-col gap-4">
+      <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 md:p-6 shadow-xl">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <div>
+            <h2 class="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+              <span>📍</span> 出撃する「自分の市区町村」を選択してください
+            </h2>
+            <p class="text-xs md:text-sm text-slate-400 mt-1">
+              大都市は人口や駅数で圧倒し、町村は森林率や標高、面積で逆転を狙えます。
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2 w-full md:w-auto">
+            <input type="text" id="search-input" oninput="renderCityList()" placeholder="市区町村・都道府県で検索..." 
+              class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400 flex-1 md:w-56">
+            <select id="region-filter" onchange="renderCityList()" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400">
+              <option value="ALL">全地方</option>
+              <option value="北海道・東北">北海道・東北</option>
+              <option value="関東">関東</option>
+              <option value="中部">中部</option>
+              <option value="近畿">近畿</option>
+              <option value="中国・四国">中国・四国</option>
+              <option value="九州・沖縄">九州・沖縄</option>
+            </select>
+            <button onclick="selectRandomPlayerCity()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-2 rounded-lg text-sm transition">
+              🎲 おまかせ
+            </button>
+          </div>
+        </div>
+
+        <!-- 市区町村グリッド -->
+        <div id="city-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[52vh] overflow-y-auto pr-1">
+          <!-- JSで生成 -->
+        </div>
+
+        <!-- カスタム自治体追加フォーム（折りたたみ） -->
+        <div class="mt-4 pt-3 border-t border-slate-700/80 flex flex-wrap justify-between items-center gap-2">
+          <button onclick="toggleCustomModal()" class="text-xs bg-slate-700 hover:bg-slate-600 text-cyan-300 px-3 py-1.5 rounded-lg transition">
+            ➕ 自分の好きな市区町村を新しく追加する
+          </button>
+          <span class="text-xs text-slate-400">※1バトル3ラウンド制（2本先取で勝利・連勝サバイバル）</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 画面2: バトル画面 -->
+    <section id="screen-battle" class="w-full hidden flex-col gap-4">
+      
+      <!-- トップステータスバー -->
+      <div class="flex justify-between items-center bg-slate-800/90 border border-slate-700 rounded-xl px-4 py-2.5">
+        <div class="flex items-center gap-3">
+          <span class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full text-xs font-bold">
+            現在 <span id="current-streak">0</span> 連勝中
+          </span>
+          <span id="round-indicator" class="text-sm font-bold text-slate-200">ROUND 1 / 3</span>
+        </div>
+        <button onclick="returnToSelect()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg transition">
+          🏳️ 市区町村を選び直す
+        </button>
+      </div>
+
+      <!-- VS カードエリア -->
+      <div class="grid grid-cols-1 md:grid-cols-11 gap-3 items-stretch">
+        
+        <!-- プレイヤー自治体カード -->
+        <div id="player-card" class="md:col-span-5 bg-gradient-to-b from-blue-950/90 to-slate-900 border-2 border-blue-500/70 rounded-2xl p-4 flex flex-col justify-between relative shadow-lg">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">PLAYER (あなた)</span>
+              <div id="player-stars" class="flex gap-1 text-lg">⚪⚪</div>
+            </div>
+            <div class="mt-2">
+              <span id="p-pref" class="text-xs text-blue-300 font-bold">愛知県</span>
+              <h3 id="p-name" class="text-2xl md:text-3xl font-black text-white tracking-tight">岡崎市</h3>
+              <p id="p-title" class="text-xs text-cyan-300 mt-0.5 font-bold">「徳川家康公生誕と八丁味噌の城下町」</p>
+            </div>
+          </div>
+
+          <!-- 今回の対決項目数値表示 -->
+          <div class="my-4 bg-slate-950/80 border border-blue-500/30 rounded-xl p-3 text-center">
+            <div class="text-xs text-slate-400 mb-1">今回の種目スコア</div>
+            <div id="p-stat-val" class="text-3xl md:text-4xl font-black text-cyan-400 font-mono">---</div>
+            <div id="p-buff-badge" class="hidden mt-1 inline-block bg-amber-500/20 border border-amber-400 text-amber-300 text-[11px] px-2 py-0.5 rounded font-bold">
+              🔥 ご当地ブースト ×1.5 適用中！
+            </div>
+          </div>
+
+          <div class="text-[11px] text-slate-400 grid grid-cols-2 gap-1 bg-slate-900/60 p-2 rounded-lg">
+            <div>👥 人口: <span id="p-mini-pop" class="text-slate-200 font-bold"></span></div>
+            <div>📐 面積: <span id="p-mini-area" class="text-slate-200 font-bold"></span></div>
+            <div>🌲 森林率: <span id="p-mini-forest" class="text-slate-200 font-bold"></span></div>
+            <div>⛰️ 標高: <span id="p-mini-elev" class="text-slate-200 font-bold"></span></div>
+          </div>
+        </div>
+
+        <!-- 中央 VS ＆ 対決項目ルーレット表示 -->
+        <div class="md:col-span-1 flex flex-col items-center justify-center py-2">
+          <div class="vs-badge w-12 h-12 rounded-full bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center font-black text-white text-lg shadow-lg border-2 border-white">
+            VS
+          </div>
+        </div>
+
+        <!-- CPU（ランダム相手）自治体カード -->
+        <div id="cpu-card" class="md:col-span-5 bg-gradient-to-b from-rose-950/90 to-slate-900 border-2 border-rose-500/70 rounded-2xl p-4 flex flex-col justify-between relative shadow-lg">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">RIVAL (ランダム選出)</span>
+              <div id="cpu-stars" class="flex gap-1 text-lg">⚪⚪</div>
+            </div>
+            <div class="mt-2">
+              <span id="c-pref" class="text-xs text-rose-300 font-bold">---</span>
+              <h3 id="c-name" class="text-2xl md:text-3xl font-black text-white tracking-tight">抽選中...</h3>
+              <p id="c-title" class="text-xs text-amber-300 mt-0.5 font-bold">「---」</p>
+            </div>
+          </div>
+
+          <!-- 今回の対決項目数値表示 -->
+          <div class="my-4 bg-slate-950/80 border border-rose-500/30 rounded-xl p-3 text-center">
+            <div class="text-xs text-slate-400 mb-1">今回の種目スコア</div>
+            <div id="c-stat-val" class="text-3xl md:text-4xl font-black text-rose-400 font-mono">???</div>
+          </div>
+
+          <div class="text-[11px] text-slate-400 bg-slate-900/60 p-2 rounded-lg text-center" id="c-hint-box">
+            💡 バトル開始前につき相手の詳細データは秘匿されています
+          </div>
+        </div>
+      </div>
+
+      <!-- 対決項目（ランダムお題）ボード ＆ コマンドパネル -->
+      <div class="bg-slate-800/90 border-2 border-slate-600 rounded-2xl p-4 md:p-5 text-center shadow-2xl relative overflow-hidden">
+        
+        <div class="inline-block bg-slate-900 border border-slate-600 rounded-full px-3 py-0.5 text-xs text-slate-300 mb-1">
+          🎲 ランダム選出された対決種目
+        </div>
+        
+        <h4 id="topic-name" class="title-font text-2xl md:text-3xl font-black text-amber-400 tracking-wide my-1">
+          種目ルーレット回転中...
+        </h4>
+        <p id="topic-desc" class="text-xs md:text-sm text-slate-300 mb-2">
+          どちらの市区町村が優れているか勝負！
+        </p>
+
+        <!-- ルール状態バッジ -->
+        <div id="rule-badge" class="inline-block bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-xs font-bold px-3 py-1 rounded-md mb-4">
+          📏 通常ルール：数値が【大きい方】が勝利！
+        </div>
+
+        <!-- アクション＆切り札コマンド -->
+        <div id="command-area" class="flex flex-col gap-3 max-w-2xl mx-auto">
+          
+          <!-- 切り札スキル（1試合に各1回のみ使用可能） -->
+          <div class="grid grid-cols-3 gap-2">
+            <button id="skill-reverse" onclick="useSkillReverse()" class="bg-purple-900/70 hover:bg-purple-800 border border-purple-400/60 rounded-xl p-2 text-left transition flex flex-col justify-between disabled:opacity-35 disabled:cursor-not-allowed">
+              <div class="flex justify-between items-center w-full">
+                <span class="text-xs font-black text-purple-200">⚡ 下克上リバース</span>
+                <span class="text-[10px] bg-purple-950 px-1.5 py-0.5 rounded text-purple-300">残り1回</span>
+              </div>
+              <p class="text-[10px] text-slate-300 mt-1">このラウンドのみ「数値が小さい方」を勝ちにする！</p>
+            </button>
+
+            <button id="skill-reroll" onclick="useSkillReroll()" class="bg-emerald-900/70 hover:bg-emerald-800 border border-emerald-400/60 rounded-xl p-2 text-left transition flex flex-col justify-between disabled:opacity-35 disabled:cursor-not-allowed">
+              <div class="flex justify-between items-center w-full">
+                <span class="text-xs font-black text-emerald-200">🔄 種目チェンジ</span>
+                <span class="text-[10px] bg-emerald-950 px-1.5 py-0.5 rounded text-emerald-300">残り1回</span>
+              </div>
+              <p class="text-[10px] text-slate-300 mt-1">苦手な項目が出た時、別のランダム種目に引き直す！</p>
+            </button>
+
+            <button id="skill-boost" onclick="useSkillBoost()" class="bg-amber-900/70 hover:bg-amber-800 border border-amber-400/60 rounded-xl p-2 text-left transition flex flex-col justify-between disabled:opacity-35 disabled:cursor-not-allowed">
+              <div class="flex justify-between items-center w-full">
+                <span class="text-xs font-black text-amber-200">🔥 ご当地ブースト</span>
+                <span class="text-[10px] bg-amber-950 px-1.5 py-0.5 rounded text-amber-300">残り1回</span>
+              </div>
+              <p class="text-[10px] text-slate-300 mt-1">このラウンドの自分の数値を1.5倍に引き上げる！</p>
+            </button>
+          </div>
+
+          <!-- メイン勝負ボタン -->
+          <button id="btn-judge" onclick="resolveRound()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black text-lg py-3.5 rounded-xl shadow-lg transition transform active:scale-95">
+            ⚔️ この種目でいざ尋常に勝負！！
+          </button>
+
+          <!-- 次へ進むボタン（判定後に表示） -->
+          <button id="btn-next" onclick="nextStep()" class="hidden w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-lg py-3.5 rounded-xl shadow-lg transition">
+            👉 次のラウンドへ進む
+          </button>
+        </div>
+
+        <!-- 結果ログメッセージ -->
+        <div id="battle-log" class="mt-3 text-sm font-bold min-h-[1.5rem] text-slate-200"></div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- カスタム市区町村追加モーダル -->
+  <div id="custom-modal" class="fixed inset-0 bg-black/75 hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl max-w-md w-full p-5 shadow-2xl">
+      <h3 class="text-lg font-bold text-white mb-2">➕ オリジナル市区町村の参戦登録</h3>
+      <p class="text-xs text-slate-400 mb-4">リストにない市区町村を追加してバトルで使うことができます。</p>
+      <div class="space-y-2.5 text-xs">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-slate-300 block mb-1">都道府県名</label>
+            <input id="c-in-pref" type="text" placeholder="例: 愛知県" class="w-full bg-slate-900 border border-slate-600 rounded px-2.5 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="text-slate-300 block mb-1">市区町村名</label>
+            <input id="c-in-name" type="text" placeholder="例: 安城市" class="w-full bg-slate-900 border border-slate-600 rounded px-2.5 py-1.5 text-white">
+          </div>
+        </div>
+        <div>
+          <label class="text-slate-300 block mb-1">キャッチコピー・二つ名</label>
+          <input id="c-in-title" type="text" placeholder="例: 日本のデンマーク・農業先進都市" class="w-full bg-slate-900 border border-slate-600 rounded px-2.5 py-1.5 text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-slate-300 block mb-1">人口 (人)</label>
+            <input id="c-in-pop" type="number" value="188000" class="w-full bg-slate-900 border border-slate-600 rounded px-2.5 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="text-slate-300 block mb-1">面積 (km²)</label>
+            <input id="c-in-area" type="number" step="0.1" value="86.0" class="w-full bg-slate-900 border border-slate-600 rounded px-2.5 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="text-slate-300 block mb-1">森林率 (%)</label>
+            <input id="c-in-forest" type="number" step="0.1" value="5.0" class="w-full bg-slate-900 border border-slate-600 rounded px-2.5 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="text-slate-300 block mb-1">最高標高 (m)</label>
+            <input id="c-in-elev" type="number" value="45" class="w-full bg-slate-900 border border-slate-600 rounded px-2.5 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="text-slate-300 block mb-1">鉄道駅の数 (駅)</label>
+            <input id="c-in-sta" type="number" value="12" class="w-full bg-slate-900 border border-slate-600 rounded px-2.5 py-1.5 text-white">
+          </div>
+          <div>
+            <label class="text-slate-300 block mb-1">平均気温 (℃)</label>
+            <input id="c-in-temp" type="number" step="0.1" value="16.2" class="w-full bg-slate-900 border border-slate-600 rounded px-2.5 py-1.5 text-white">
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button onclick="toggleCustomModal()" class="px-4 py-2 rounded-lg bg-slate-700 text-slate-300 text-xs font-bold">キャンセル</button>
+        <button onclick="addCustomCity()" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold">追加して参戦</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. 全国42市区町村データ（実在統計ベース）
+    // ==========================================
+    const INITIAL_CITIES = [
+      // 北海道・東北
+      { id: "sapporo", region: "北海道・東北", pref: "北海道", name: "札幌市", title: "北の大地の絶対王者", pop: 1966000, area: 1121.3, forest: 68, elev: 1488, temp: 9.5, stations: 84, finance: 0.78, strokes: 23, gourmet: 96 },
+      { id: "ashoro", region: "北海道・東北", pref: "北海道", name: "足寄町", title: "日本一面積が広い町", pop: 6200, area: 1408.1, forest: 84, elev: 1499, temp: 6.4, stations: 0, finance: 0.22, strokes: 25, gourmet: 78 },
+      { id: "hirosaki", region: "北海道・東北", pref: "青森県", name: "弘前市", title: "りんご生産量日本一の城下町", pop: 163000, area: 524.2, forest: 54, elev: 1625, temp: 10.8, stations: 22, finance: 0.52, strokes: 19, gourmet: 89 },
+      { id: "morioka", region: "北海道・東北", pref: "岩手県", name: "盛岡市", title: "三大麺と岩手山を仰ぐ街", pop: 285000, area: 886.5, forest: 69, elev: 2038, temp: 10.7, stations: 16, finance: 0.69, strokes: 24, gourmet: 90 },
+      { id: "sendai", region: "北海道・東北", pref: "宮城県", name: "仙台市", title: "東北を統べる杜の都", pop: 1096000, area: 786.4, forest: 56, elev: 1500, temp: 13.1, stations: 61, finance: 0.89, strokes: 15, gourmet: 94 },
+      { id: "tendo", region: "北海道・東北", pref: "山形県", name: "天童市", title: "将棋駒とラ・フランスの聖地", pop: 61000, area: 113.0, forest: 44, elev: 905, temp: 12.1, stations: 4, finance: 0.66, strokes: 21, gourmet: 85 },
+      { id: "iwaki", region: "北海道・東北", pref: "福島県", name: "いわき市", title: "東北のハワイ・日照時間の街", pop: 322000, area: 1232.3, forest: 70, elev: 1066, temp: 13.8, stations: 16, finance: 0.72, strokes: 14, gourmet: 86 },
+
+      // 関東
+      { id: "tsukuba", region: "関東", pref: "茨城県", name: "つくば市", title: "日本最高峰の科学技術学園都市", pop: 256000, area: 283.7, forest: 15, elev: 877, temp: 14.5, stations: 4, finance: 0.96, strokes: 13, gourmet: 82 },
+      { id: "nikko", region: "関東", pref: "栃木県", name: "日光市", title: "東照宮と関東最大の広域面積", pop: 74000, area: 1449.8, forest: 87, elev: 2578, temp: 11.5, stations: 22, finance: 0.58, strokes: 15, gourmet: 92 },
+      { id: "kusatsu", region: "関東", pref: "群馬県", name: "草津町", title: "自然湧出量日本一の天下の名湯", pop: 6100, area: 49.7, forest: 72, elev: 2160, temp: 7.5, stations: 0, finance: 0.65, strokes: 25, gourmet: 93 },
+      { id: "warabi", region: "関東", pref: "埼玉県", name: "蕨市", title: "日本一コンパクトで超高密度な市", pop: 75500, area: 5.11, forest: 0.1, elev: 11, temp: 15.8, stations: 1, finance: 0.87, strokes: 20, gourmet: 76 },
+      { id: "urayasu", region: "関東", pref: "千葉県", name: "浦安市", title: "夢と魔法があふれるベイサイド", pop: 171000, area: 17.3, forest: 0.2, elev: 18, temp: 16.2, stations: 7, finance: 1.32, strokes: 21, gourmet: 88 },
+      { id: "setagaya", region: "関東", pref: "東京都", name: "世田谷区", title: "東京23区で人口最大の住宅都市", pop: 940000, area: 58.05, forest: 1.2, elev: 52, temp: 16.1, stations: 38, finance: 1.05, strokes: 20, gourmet: 91 },
+      { id: "toshima", region: "関東", pref: "東京都", name: "豊島区", title: "人口密度日本一！カルチャーの街", pop: 304000, area: 13.01, forest: 0.1, elev: 36, temp: 16.3, stations: 28, finance: 1.02, strokes: 27, gourmet: 90 },
+      { id: "hinohara", region: "関東", pref: "東京都", name: "檜原村", title: "本州の東京都で唯一の秘境村", pop: 1950, area: 105.4, forest: 93, elev: 1531, temp: 12.2, stations: 0, finance: 0.18, strokes: 34, gourmet: 79 },
+      { id: "yokohama", region: "関東", pref: "神奈川県", name: "横浜市", title: "人口377万人！全国市区町村の頂点", pop: 3772000, area: 437.8, forest: 8.5, elev: 159, temp: 16.2, stations: 157, finance: 0.99, strokes: 30, gourmet: 95 },
+
+      // 中部
+      { id: "niigata", region: "中部", pref: "新潟県", name: "新潟市", title: "日本海側最大の米と水都", pop: 770000, area: 726.5, forest: 13, elev: 634, temp: 14.1, stations: 32, finance: 0.72, strokes: 33, gourmet: 94 },
+      { id: "funahashi", region: "中部", pref: "富山県", name: "舟橋村", title: "面積3.47km²！日本一小さな自治体", pop: 3300, area: 3.47, forest: 0.0, elev: 28, temp: 14.3, stations: 1, finance: 0.56, strokes: 29, gourmet: 75 },
+      { id: "kanazawa", region: "中部", pref: "石川県", name: "金沢市", title: "加賀百万石の伝統と美食の都", pop: 458000, area: 468.8, forest: 60, elev: 1644, temp: 15.0, stations: 21, finance: 0.84, strokes: 21, gourmet: 97 },
+      { id: "fujiyoshida", region: "中部", pref: "山梨県", name: "富士吉田市", title: "標高3776m！富士の頂を抱く街", pop: 46000, area: 121.7, forest: 72, elev: 3776, temp: 11.0, stations: 6, finance: 0.67, strokes: 31, gourmet: 85 },
+      { id: "matsumoto", region: "中部", pref: "長野県", name: "松本市", title: "北アルプスと国宝松本城の岳都", pop: 237000, area: 978.4, forest: 78, elev: 3190, temp: 12.2, stations: 24, finance: 0.75, strokes: 18, gourmet: 89 },
+      { id: "takayama", region: "中部", pref: "岐阜県", name: "高山市", title: "東京都とほぼ同じ！日本一広い市", pop: 83000, area: 2177.6, forest: 92, elev: 3190, temp: 11.4, stations: 10, finance: 0.53, strokes: 18, gourmet: 93 },
+      { id: "hamamatsu", region: "中部", pref: "静岡県", name: "浜松市", title: "全国2位の広さ！ものづくりと出世城", pop: 780000, area: 1558.1, forest: 65, elev: 2014, temp: 16.8, stations: 48, finance: 0.88, strokes: 23, gourmet: 93 },
+      { id: "nagoya", region: "中部", pref: "愛知県", name: "名古屋市", title: "中京圏を牽引する黄金のメトロポリス", pop: 2331000, area: 326.5, forest: 3.8, elev: 198, temp: 16.3, stations: 186, finance: 1.02, strokes: 25, gourmet: 96 },
+      { id: "okazaki", region: "中部", pref: "愛知県", name: "岡崎市", title: "徳川家康公生誕と八丁味噌の城下町", pop: 384000, area: 387.2, forest: 61, elev: 789, temp: 16.0, stations: 20, finance: 1.04, strokes: 24, gourmet: 92 },
+      { id: "toyota", region: "中部", pref: "愛知県", name: "豊田市", title: "世界を走るクルマの街・広域産業都市", pop: 415000, area: 918.3, forest: 70, elev: 1229, temp: 15.6, stations: 32, finance: 1.38, strokes: 23, gourmet: 84 },
+      { id: "tobishima", region: "中部", pref: "愛知県", name: "飛島村", title: "財政力指数日本一！臨海工業の超裕福村", pop: 4550, area: 22.4, forest: 0.0, elev: 3, temp: 16.2, stations: 0, finance: 2.15, strokes: 26, gourmet: 77 },
+
+      // 近畿
+      { id: "kyoto", region: "近畿", pref: "京都府", name: "京都市", title: "世界に誇る千年の古都", pop: 1440000, area: 827.8, forest: 74, elev: 971, temp: 16.2, stations: 121, finance: 0.87, strokes: 24, gourmet: 98 },
+      { id: "osaka", region: "近畿", pref: "大阪府", name: "大阪市", title: "駅数・商業密度トップクラスの天下の台所", pop: 2780000, area: 225.3, forest: 0.3, elev: 38, temp: 17.1, stations: 210, finance: 1.04, strokes: 15, gourmet: 98 },
+      { id: "kobe", region: "近畿", pref: "兵庫県", name: "神戸市", title: "六甲山と海が織りなす国際港湾都市", pop: 1500000, area: 557.0, forest: 41, elev: 931, temp: 17.0, stations: 112, finance: 0.85, strokes: 18, gourmet: 95 },
+      { id: "totsukawa", region: "近畿", pref: "奈良県", name: "十津川村", title: "日本一広い村！琵琶湖に匹敵する秘境", pop: 2900, area: 672.3, forest: 96, elev: 1915, temp: 13.8, stations: 0, finance: 0.16, strokes: 21, gourmet: 81 },
+
+      // 中国・四国
+      { id: "tottori", region: "中国・四国", pref: "鳥取県", name: "鳥取市", title: "日本最大の鳥取砂丘を擁する街", pop: 183000, area: 765.3, forest: 73, elev: 1388, temp: 15.2, stations: 21, finance: 0.56, strokes: 24, gourmet: 89 },
+      { id: "hiroshima", region: "中国・四国", pref: "広島県", name: "広島市", title: "中国四国地方最大の平和と水の都", pop: 1185000, area: 906.7, forest: 66, elev: 1050, temp: 16.5, stations: 102, finance: 0.89, strokes: 20, gourmet: 96 },
+      { id: "takamatsu", region: "中国・四国", pref: "香川県", name: "高松市", title: "瀬戸内の玄関口・讃岐うどんの聖地", pop: 412000, area: 375.4, forest: 36, elev: 946, temp: 16.7, stations: 48, finance: 0.81, strokes: 23, gourmet: 93 },
+      { id: "ino", region: "中国・四国", pref: "高知県", name: "いの町", title: "奇跡の清流・仁淀ブルーと土佐和紙", pop: 20500, area: 470.9, forest: 89, elev: 1896, temp: 15.4, stations: 23, finance: 0.34, strokes: 11, gourmet: 84 },
+
+      // 九州・沖縄
+      { id: "fukuoka", region: "九州・沖縄", pref: "福岡県", name: "福岡市", title: "アジアに最も近い超成長メガシティ", pop: 1645000, area: 343.5, forest: 31, elev: 1055, temp: 17.3, stations: 65, finance: 0.99, strokes: 27, gourmet: 98 },
+      { id: "kumamoto", region: "九州・沖縄", pref: "熊本県", name: "熊本市", title: "100%地下水で潤う火の国の城下町", pop: 738000, area: 390.3, forest: 20, elev: 665, temp: 17.2, stations: 55, finance: 0.77, strokes: 24, gourmet: 93 },
+      { id: "kagoshima", region: "九州・沖縄", pref: "鹿児島県", name: "鹿児島市", title: "活火山・桜島と向き合う南九州の雄", pop: 588000, area: 547.6, forest: 52, elev: 1117, temp: 18.8, stations: 56, finance: 0.77, strokes: 29, gourmet: 94 },
+      { id: "naha", region: "九州・沖縄", pref: "沖縄県", name: "那覇市", title: "琉球王国の歴史息づく南国の中心都市", pop: 314000, area: 41.4, forest: 4.5, elev: 168, temp: 23.3, stations: 15, finance: 0.78, strokes: 31, gourmet: 95 },
+      { id: "taketomi", region: "九州・沖縄", pref: "沖縄県", name: "竹富町", title: "西表島・竹富島を抱く日本最南端の楽園", pop: 4300, area: 334.4, forest: 88, elev: 470, temp: 24.5, stations: 0, finance: 0.24, strokes: 25, gourmet: 90 }
+    ];
+
+    // ==========================================
+    // 2. ランダム対決項目（10種目）定義
+    // ==========================================
+    const BATTLE_TOPICS = [
+      { key: "pop", name: "👥 総人口バトル", unit: "人", desc: "自治体の総人口で勝負！大都市が圧倒的有利なパワー種目！" },
+      { key: "area", name: "📐 総面積バトル", unit: "km²", desc: "自治体の広さで勝負！広域合併市や大自然の町村が輝く！" },
+      { key: "density", name: "🏙️ 人口密度バトル", unit: "人/km²", desc: "1km²あたりの人口密度（人口÷面積）で勝負！コンパクト都市の本領発揮！" },
+      { key: "forest", name: "🌲 森林率バトル", unit: "%", desc: "面積に占める森林の割合で勝負！町村が大都会を撃破する大逆転種目！" },
+      { key: "elev", name: "⛰️ 最高標高バトル", unit: "m", desc: "自治体内の最も高い地点の標高で勝負！名峰を抱える街が無双する！" },
+      { key: "temp", name: "☀️ 年間平均気温バトル", unit: "℃", desc: "年間の平均気温で勝負！南国エリアか、それとも下克上で寒冷地か！？" },
+      { key: "stations", name: "🚃 鉄道駅・停留場数バトル", unit: "駅", desc: "自治体内の鉄道・モノレール・路面電車の駅数で勝負！" },
+      { key: "finance", name: "💰 財政力指数バトル", unit: "pt", desc: "自治体の経済的な豊かさ（財政力指数）で勝負！工業都市や都心が強い！" },
+      { key: "strokes", name: "🖌️ 自治体名の総画数バトル", unit: "画", desc: "人口も面積も関係なし！市区町村名の文字の画数が多い方が勝つロマン種目！" },
+      { key: "gourmet", name: "🍜 ご当地グルメ＆観光熱量バトル", unit: "pt", desc: "名物グルメと観光人気に「当日のランダム熱気(+0〜15)」を加算した波乱種目！" }
+    ];
+
+    // ==========================================
+    // 3. ゲーム状態・サウンドエンジン
+    // ==========================================
+    let cities = [...INITIAL_CITIES];
+    let soundEnabled = true;
+    let audioCtx = null;
+
+    let state = {
+      playerCity: null,
+      cpuCity: null,
+      streak: 0,
+      bestStreak: 0,
+      defeatedIds: new Set(),
+      round: 1,
+      pWins: 0,
+      cWins: 0,
+      currentTopic: null,
+      isReversed: false,
+      isBoosted: false,
+      skillsUsed: { reverse: false, reroll: false, boost: false },
+      phase: "SELECT" // SELECT, READY, JUDGED, MATCH_END
+    };
+
+    // Web Audio API シンセ効果音
+    function playSE(type) {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === "click") {
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(600, now);
+          osc.frequency.exponentialRampToValueAtTime(900, now + 0.08);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+          osc.start(now); osc.stop(now + 0.08);
+        } else if (type === "skill") {
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.2);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+          osc.start(now); osc.stop(now + 0.2);
+        } else if (type === "win") {
+          [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = "triangle";
+            o.connect(g); g.connect(audioCtx.destination);
+            o.frequency.setValueAtTime(freq, now + idx * 0.08);
+            g.gain.setValueAtTime(0.18, now + idx * 0.08);
+            g.gain.linearRampToValueAtTime(0.01, now + idx * 0.08 + 0.25);
+            o.start(now + idx * 0.08); o.stop(now + idx * 0.08 + 0.25);
+          });
+        } else if (type === "lose") {
+          [350, 300, 220].forEach((freq, idx) => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = "sawtooth";
+            o.connect(g); g.connect(audioCtx.destination);
+            o.frequency.setValueAtTime(freq, now + idx * 0.12);
+            g.gain.setValueAtTime(0.12, now + idx * 0.12);
+            g.gain.linearRampToValueAtTime(0.01, now + idx * 0.12 + 0.25);
+            o.start(now + idx * 0.12); o.stop(now + idx * 0.12 + 0.25);
+          });
+        }
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById("sound-btn").textContent = soundEnabled ? "🔊 音ON" : "🔇 音OFF";
+    }
+
+    // ==========================================
+    // 4. セーブデータ読み込み＆初期化
+    // ==========================================
+    function loadSaveData() {
+      try {
+        const savedBest = localStorage.getItem("muni_clash_best");
+        if (savedBest) state.bestStreak = parseInt(savedBest, 10) || 0;
+        const savedDex = localStorage.getItem("muni_clash_dex");
+        if (savedDex) state.defeatedIds = new Set(JSON.parse(savedDex));
+      } catch (e) {}
+      updateHeaderStats();
+    }
+
+    function saveData() {
+      try {
+        localStorage.setItem("muni_clash_best", state.bestStreak.toString());
+        localStorage.setItem("muni_clash_dex", JSON.stringify([...state.defeatedIds]));
+      } catch (e) {}
+      updateHeaderStats();
+    }
+
+    function updateHeaderStats() {
+      document.getElementById("best-streak").textContent = state.bestStreak;
+      document.getElementById("dex-count").textContent = `${state.defeatedIds.size}/${cities.length}`;
+    }
+
+    // ==========================================
+    // 5. 市区町村リスト描画 ＆ 選択
+    // ==========================================
+    function getDensity(city) {
+      return Math.round(city.pop / city.area);
+    }
+
+    function renderCityList() {
+      const grid = document.getElementById("city-grid");
+      const query = document.getElementById("search-input").value.trim().toLowerCase();
+      const region = document.getElementById("region-filter").value;
+
+      const filtered = cities.filter(c => {
+        const matchRegion = region === "ALL" || c.region === region;
+        const matchQuery = !query || c.name.toLowerCase().includes(query) || c.pref.toLowerCase().includes(query) || c.title.toLowerCase().includes(query);
+        return matchRegion && matchQuery;
+      });
+
+      grid.innerHTML = filtered.map(c => {
+        const isDefeated = state.defeatedIds.has(c.id);
+        return `
+          <div onclick="selectPlayerCity('${c.id}')" 
+            class="cursor-pointer bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-cyan-400 rounded-xl p-3.5 transition group flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center text-xs mb-1">
+                <span class="text-cyan-400 font-bold">${c.pref} <span class="text-slate-500">(${c.region})</span></span>
+                ${isDefeated ? '<span class="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded">🏆 撃破済</span>' : ''}
+              </div>
+              <div class="text-lg font-black text-white group-hover:text-cyan-300 transition">${c.name}</div>
+              <div class="text-[11px] text-slate-400 mt-0.5 line-clamp-1">${c.title}</div>
+            </div>
+            <div class="mt-3 pt-2 border-t border-slate-800 grid grid-cols-3 gap-1 text-[11px] text-slate-300">
+              <div>👥 ${(c.pop >= 10000 ? (c.pop / 10000).toFixed(1) + '万' : c.pop.toLocaleString())}</div>
+              <div>📐 ${c.area}km²</div>
+              <div>🌲 森林${c.forest}%</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function selectRandomPlayerCity() {
+      playSE("click");
+      const rand = cities[Math.floor(Math.random() * cities.length)];
+      selectPlayerCity(rand.id);
+    }
+
+    function selectPlayerCity(id) {
+      playSE("click");
+      const chosen = cities.find(c => c.id === id);
+      if (!chosen) return;
+      state.playerCity = chosen;
+      state.streak = 0;
+
+      document.getElementById("screen-select").classList.add("hidden");
+      document.getElementById("screen-battle").classList.remove("hidden");
+      document.getElementById("screen-battle").classList.add("flex");
+
+      startNewMatch();
+    }
+
+    function returnToSelect() {
+      playSE("click");
+      document.getElementById("screen-battle").classList.add("hidden");
+      document.getElementById("screen-battle").classList.remove("flex");
+      document.getElementById("screen-select").classList.remove("hidden");
+      renderCityList();
+    }
+
+    // ==========================================
+    // 6. バトル進行ロジック
+    // ==========================================
+    function startNewMatch() {
+      // 自分以外の市区町村からランダムに相手を選出
+      const candidates = cities.filter(c => c.id !== state.playerCity.id);
+      state.cpuCity = candidates[Math.floor(Math.random() * candidates.length)];
+      state.round = 1;
+      state.pWins = 0;
+      state.cWins = 0;
+      state.skillsUsed = { reverse: false, reroll: false, boost: false };
+
+      updateMatchUI();
+      startRound();
+    }
+
+    function updateMatchUI() {
+      const p = state.playerCity;
+      const c = state.cpuCity;
+
+      document.getElementById("current-streak").textContent = state.streak;
+      document.getElementById("p-pref").textContent = p.pref;
+      document.getElementById("p-name").textContent = p.name;
+      document.getElementById("p-title").textContent = `「${p.title}」`;
+      document.getElementById("p-mini-pop").textContent = `${p.pop.toLocaleString()}人`;
+      document.getElementById("p-mini-area").textContent = `${p.area}km²`;
+      document.getElementById("p-mini-forest").textContent = `${p.forest}%`;
+      document.getElementById("p-mini-elev").textContent = `${p.elev}m`;
+
+      document.getElementById("c-pref").textContent = c.pref;
+      document.getElementById("c-name").textContent = c.name;
+      document.getElementById("c-title").textContent = `「${c.title}」`;
+
+      renderWinStars();
+    }
+
+    function renderWinStars() {
+      const pStars = "🟢".repeat(state.pWins) + "⚪".repeat(2 - state.pWins);
+      const cStars = "🔴".repeat(state.cWins) + "⚪".repeat(2 - state.cWins);
+      document.getElementById("player-stars").textContent = pStars;
+      document.getElementById("cpu-stars").textContent = cStars;
+      document.getElementById("round-indicator").textContent = `ROUND ${state.round} / 3 (2本先取)`;
+    }
+
+    function getStatValue(city, topicKey, isRandomGourmet = false) {
+      if (topicKey === "density") return getDensity(city);
+      if (topicKey === "gourmet") {
+        const bonus = isRandomGourmet ? Math.floor(Math.random() * 16) : 0;
+        return city.gourmet + bonus;
+      }
+      return city[topicKey];
+    }
+
+    function formatStatValue(val, unit) {
+      if (typeof val === "number") {
+        return `${val.toLocaleString()} ${unit}`;
+      }
+      return `${val} ${unit}`;
+    }
+
+    function startRound() {
+      state.phase = "READY";
+      state.isReversed = false;
+      state.isBoosted = false;
+
+      // ランダムな対決項目を選出
+      state.currentTopic = BATTLE_TOPICS[Math.floor(Math.random() * BATTLE_TOPICS.length)];
+
+      // 表示のリセット
+      document.getElementById("topic-name").textContent = state.currentTopic.name;
+      document.getElementById("topic-desc").textContent = state.currentTopic.desc;
+
+      const basePVal = getStatValue(state.playerCity, state.currentTopic.key, false);
+      document.getElementById("p-stat-val").textContent = formatStatValue(basePVal, state.currentTopic.unit);
+      document.getElementById("c-stat-val").textContent = "???";
+      document.getElementById("p-buff-badge").classList.add("hidden");
+      document.getElementById("c-hint-box").textContent = `💡 相手は「${state.cpuCity.pref}${state.cpuCity.name}」。このまま勝負するか、切り札を使うか選択！`;
+      document.getElementById("battle-log").textContent = "";
+
+      updateRuleBadge();
+      updateSkillButtons();
+
+      document.getElementById("btn-judge").classList.remove("hidden");
+      document.getElementById("btn-next").classList.add("hidden");
+      renderWinStars();
+    }
+
+    function updateRuleBadge() {
+      const badge = document.getElementById("rule-badge");
+      if (state.isReversed) {
+        badge.className = "inline-block bg-purple-500/30 border border-purple-400 text-purple-200 text-xs font-bold px-3 py-1 rounded-md mb-4 animate-pulse";
+        badge.textContent = "⚡ 下克上リバース発動中：このラウンドは数値が【小さい方】が勝利！！";
+      } else {
+        badge.className = "inline-block bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-xs font-bold px-3 py-1 rounded-md mb-4";
+        badge.textContent = "📏 通常ルール：数値が【大きい方】が勝利！";
+      }
+    }
+
+    function updateSkillButtons() {
+      const revBtn = document.getElementById("skill-reverse");
+      const rerollBtn = document.getElementById("skill-reroll");
+      const boostBtn = document.getElementById("skill-boost");
+
+      revBtn.disabled = state.skillsUsed.reverse || state.phase !== "READY";
+      rerollBtn.disabled = state.skillsUsed.reroll || state.phase !== "READY";
+      boostBtn.disabled = state.skillsUsed.boost || state.phase !== "READY";
+
+      revBtn.querySelector("span:last-child").textContent = state.skillsUsed.reverse ? "使用済" : "残り1回";
+      rerollBtn.querySelector("span:last-child").textContent = state.skillsUsed.reroll ? "使用済" : "残り1回";
+      boostBtn.querySelector("span:last-child").textContent = state.skillsUsed.boost ? "使用済" : "残り1回";
+    }
+
+    // 切り札1: 下克上リバース
+    function useSkillReverse() {
+      if (state.skillsUsed.reverse || state.phase !== "READY") return;
+      playSE("skill");
+      state.skillsUsed.reverse = true;
+      state.isReversed = true;
+      updateRuleBadge();
+      updateSkillButtons();
+      document.getElementById("battle-log").innerHTML = `<span class="text-purple-300">⚡ 下克上リバース発動！数値が小さい方が勝つ逆転ルールに変更！</span>`;
+    }
+
+    // 切り札2: 種目チェンジ
+    function useSkillReroll() {
+      if (state.skillsUsed.reroll || state.phase !== "READY") return;
+      playSE("skill");
+      state.skillsUsed.reroll = true;
+      const others = BATTLE_TOPICS.filter(t => t.key !== state.currentTopic.key);
+      state.currentTopic = others[Math.floor(Math.random() * others.length)];
+
+      document.getElementById("topic-name").textContent = state.currentTopic.name;
+      document.getElementById("topic-desc").textContent = state.currentTopic.desc;
+
+      let pVal = getStatValue(state.playerCity, state.currentTopic.key, false);
+      if (state.isBoosted) pVal = Math.round(pVal * 1.5 * 10) / 10;
+      document.getElementById("p-stat-val").textContent = formatStatValue(pVal, state.currentTopic.unit);
+
+      updateSkillButtons();
+      document.getElementById("battle-log").innerHTML = `<span class="text-emerald-300">🔄 種目チェンジ発動！お題が「${state.currentTopic.name}」に変わった！</span>`;
+    }
+
+    // 切り札3: ご当地ブースト
+    function useSkillBoost() {
+      if (state.skillsUsed.boost || state.phase !== "READY") return;
+      playSE("skill");
+      state.skillsUsed.boost = true;
+      state.isBoosted = true;
+
+      let pVal = getStatValue(state.playerCity, state.currentTopic.key, false);
+      pVal = Math.round(pVal * 1.5 * 10) / 10;
+      document.getElementById("p-stat-val").textContent = formatStatValue(pVal, state.currentTopic.unit);
+      document.getElementById("p-buff-badge").classList.remove("hidden");
+
+      updateSkillButtons();
+      document.getElementById("battle-log").innerHTML = `<span class="text-amber-300">🔥 ご当地ブースト発動！${state.playerCity.name}の数値が1.5倍にパワーアップ！</span>`;
+    }
+
+    // ラウンド勝敗判定
+    function resolveRound() {
+      if (state.phase !== "READY") return;
+      state.phase = "JUDGED";
+      updateSkillButtons();
+
+      const topic = state.currentTopic;
+      let pVal = getStatValue(state.playerCity, topic.key, topic.key === "gourmet");
+      if (state.isBoosted) pVal = Math.round(pVal * 1.5 * 10) / 10;
+      let cVal = getStatValue(state.cpuCity, topic.key, topic.key === "gourmet");
+
+      document.getElementById("p-stat-val").textContent = formatStatValue(pVal, topic.unit);
+      document.getElementById("c-stat-val").textContent = formatStatValue(cVal, topic.unit);
+
+      // 相手の詳細データも開示
+      const c = state.cpuCity;
+      document.getElementById("c-hint-box").innerHTML = `
+        👥 人口: <b>${c.pop.toLocaleString()}人</b> / 📐 面積: <b>${c.area}km²</b> / 🌲 森林率: <b>${c.forest}%</b> / ⛰️ 標高: <b>${c.elev}m</b>
+      `;
+
+      let playerWon = false;
+      if (pVal === cVal) {
+        playerWon = true; // 同値はプレイヤー有利
+      } else if (state.isReversed) {
+        playerWon = pVal < cVal;
+      } else {
+        playerWon = pVal > cVal;
+      }
+
+      const logEl = document.getElementById("battle-log");
+      if (playerWon) {
+        playSE("win");
+        state.pWins++;
+        document.getElementById("cpu-card").classList.add("shake-anim");
+        setTimeout(() => document.getElementById("cpu-card").classList.remove("shake-anim"), 450);
+        logEl.innerHTML = `<span class="text-cyan-300 text-base">⭕ ラウンド勝利！ ${state.playerCity.name} (${formatStatValue(pVal, topic.unit)}) が ${state.cpuCity.name} (${formatStatValue(cVal, topic.unit)}) を上回った！</span>`;
+      } else {
+        playSE("lose");
+        state.cWins++;
+        document.getElementById("player-card").classList.add("shake-anim");
+        setTimeout(() => document.getElementById("player-card").classList.remove("shake-anim"), 450);
+        logEl.innerHTML = `<span class="text-rose-400 text-base">❌ ラウンド敗北… ${state.cpuCity.name} (${formatStatValue(cVal, topic.unit)}) に押し切られた！</span>`;
+      }
+
+      renderWinStars();
+      document.getElementById("btn-judge").classList.add("hidden");
+      const nextBtn = document.getElementById("btn-next");
+      nextBtn.classList.remove("hidden");
+
+      // 2本先取チェック
+      if (state.pWins >= 2) {
+        state.phase = "MATCH_END";
+        state.streak++;
+        if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+        state.defeatedIds.add(state.cpuCity.id);
+        saveData();
+        document.getElementById("current-streak").textContent = state.streak;
+        nextBtn.textContent = `🏆 試合勝利！（${state.streak}連勝） 次のランダム市区町村と戦う`;
+      } else if (state.cWins >= 2) {
+        state.phase = "MATCH_END";
+        state.streak = 0;
+        document.getElementById("current-streak").textContent = 0;
+        nextBtn.textContent = `💥 敗北… 連勝ストップ！ 新しい対戦相手と再挑戦する`;
+      } else {
+        nextBtn.textContent = `👉 ROUND ${state.round + 1} へ進む`;
+      }
+    }
+
+    function nextStep() {
+      playSE("click");
+      if (state.phase === "MATCH_END") {
+        startNewMatch();
+      } else {
+        state.round++;
+        startRound();
+      }
+    }
+
+    // ==========================================
+    // 7. カスタム市区町村追加機能
+    // ==========================================
+    function toggleCustomModal() {
+      const modal = document.getElementById("custom-modal");
+      if (modal.classList.contains("hidden")) {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      } else {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+      }
+    }
+
+    function addCustomCity() {
+      const pref = document.getElementById("c-in-pref").value.trim() || "オリジナル県";
+      const name = document.getElementById("c-in-name").value.trim() || "カスタム市";
+      const title = document.getElementById("c-in-title").value.trim() || "独自参戦のチャレンジャー";
+      const pop = Math.max(1, parseInt(document.getElementById("c-in-pop").value, 10) || 100000);
+      const area = Math.max(0.1, parseFloat(document.getElementById("c-in-area").value) || 100);
+      const forest = Math.min(100, Math.max(0, parseFloat(document.getElementById("c-in-forest").value) || 30));
+      const elev = Math.max(0, parseInt(document.getElementById("c-in-elev").value, 10) || 200);
+      const stations = Math.max(0, parseInt(document.getElementById("c-in-sta").value, 10) || 5);
+      const temp = parseFloat(document.getElementById("c-in-temp").value) || 15.5;
+
+      const newId = "custom_" + Date.now();
+      const newCity = {
+        id: newId,
+        region: "中部",
+        pref,
+        name,
+        title,
+        pop,
+        area,
+        forest,
+        elev,
+        temp,
+        stations,
+        finance: 0.85,
+        strokes: name.length * 8,
+        gourmet: 88
+      };
+
+      cities.unshift(newCity);
+      toggleCustomModal();
+      updateHeaderStats();
+      renderCityList();
+      selectPlayerCity(newId);
+    }
+
+    // 初期起動
+    loadSaveData();
+    renderCityList();
+  </script>
+</body>
+</html>
